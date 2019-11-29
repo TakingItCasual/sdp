@@ -119,5 +119,6 @@ func main() {
         api.GET("/callback", callbackHandler)
     }
 
+	// cd ui && npm run build && cd .. && go build cmd/main.go && main.exe
 	router.Run(":9090")
 }
