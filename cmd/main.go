@@ -8,20 +8,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
-
-// Credentials which stores google ids.
-type Credentials struct {
-	Cid     string `json:"cid"`
-	Csecret string `json:"csecret"`
-}
 
 // User is a retrieved and authentiacted user.
 type User struct {
@@ -36,10 +29,7 @@ type User struct {
 	Gender        string `json:"gender"`
 }
 
-var cred Credentials
 var conf *oauth2.Config
-var state string
-var store = sessions.NewCookieStore([]byte("secret"))
 
 func randToken() string {
 	b := make([]byte, 32)
@@ -57,57 +47,83 @@ func init() {
 	}
 }
 
-func getLoginURL(state string) string {
-	return conf.AuthCodeURL(state)
-}
+func googleCallbackHandler(c *gin.Context) {
+	// Read oauthState from Cookie
+	oauthState, _ := c.Cookie("googleOauthstate")
 
-func callbackHandler(c *gin.Context) {
-	// Handle the exchange code to initiate a transport.
-	session := sessions.Default(c)
-	retrievedState := session.Get("state")
-	if retrievedState != c.Query("state") {
-		c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("Invalid session state: %s", retrievedState))
+	if c.Query("googleOauthstate") != oauthState {
+		log.Println("invalid oauth google state")
+		c.Redirect(http.StatusTemporaryRedirect, "/")
 		return
 	}
 
+	data, err := getGoogleUserData(c)
+	if err != nil {
+		log.Println(err.Error())
+		c.Redirect(http.StatusTemporaryRedirect, "/")
+		return
+	}
+
+	// GetOrCreate User in your db.
+	// Redirect or response with a token.
+	// More code .....
+	fmt.Fprintf(c.Writer, "UserInfo: %s\n", data)
+}
+
+func getGoogleUserData(c *gin.Context) ([]byte, error) {
+	// Use code to get token and get user info from Google.
 	tok, err := conf.Exchange(oauth2.NoContext, c.Query("code"))
 	if err != nil {
-		c.AbortWithError(http.StatusBadRequest, err)
-		return
+		return nil, err
 	}
 
 	client := conf.Client(oauth2.NoContext, tok)
 	email, err := client.Get("https://www.googleapis.com/oauth2/v3/userinfo")
 	if err != nil {
-		c.AbortWithError(http.StatusBadRequest, err)
-		return
+		return nil, err
 	}
+
 	defer email.Body.Close()
 	data, _ := ioutil.ReadAll(email.Body)
 	log.Println("Email body: ", string(data))
 	c.Status(http.StatusOK)
+
+	return data, nil
 }
 
-func loginHandler(c *gin.Context) {
-	state = randToken()
-	session := sessions.Default(c)
-	session.Set("state", state)
-	session.Save()
-	c.Writer.Write([]byte("<html><title>Golang Google</title> <body> <a href='" + getLoginURL(state) + "'><button>Login with Google!</button> </a> </body></html>"))
+func googleLoginHandler(c *gin.Context) {
+	oauthState := generateStateOauthCookie(c)
+	loginURL := conf.AuthCodeURL(oauthState)
+	c.Redirect(http.StatusSeeOther, loginURL)
+}
+
+func generateStateOauthCookie(c *gin.Context) string {
+	b := make([]byte, 32)
+	rand.Read(b)
+	randData := base64.URLEncoding.EncodeToString(b)
+	cookie := http.Cookie{
+		Name:     "googleOauthstate",
+		Value:    randData,
+		Expires:  time.Now().Add(time.Hour), // Must log in in under an hour
+		HttpOnly: true,                      // Cookie only accessible from backend
+	}
+	http.SetCookie(c.Writer, &cookie)
+
+	return randData
 }
 
 func main() {
 	router := gin.Default()
-	router.Use(sessions.Sessions("goquestsession", store))
 
 	// CORS is enabled to allow the backend and frontend to communicate
-	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"http://google.com"}
-	router.Use(cors.New(config))
+	//config := cors.DefaultConfig()
+	//config.AllowOrigins = []string{"http://google.com"}
+	//router.Use(cors.New(config))
 
 	// The React files are served
 	router.Use(static.Serve("/", static.LocalFile("./ui/build", true)))
 	// For manual url inputs, refreshes, page 404s, etc.
+	// TODO: Figure out how to not apply this redirect for /api/ routes
 	router.NoRoute(func(c *gin.Context) {
 		c.File("./ui/build/index.html")
 	})
@@ -119,8 +135,12 @@ func main() {
 				"message": "pong",
 			})
 		})
-		api.GET("/login", loginHandler)
-		api.GET("/callback", callbackHandler)
+
+		auth := api.Group("/auth/google")
+		{
+			auth.GET("/login", googleLoginHandler)
+			auth.GET("/callback", googleCallbackHandler)
+		}
 	}
 
 	// cd ui && npm run build && cd .. && go build cmd/main.go && main.exe
