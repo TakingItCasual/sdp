@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -40,18 +39,17 @@ func randToken() string {
 func init() {
 	conf = &oauth2.Config{
 		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
-		ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRECT"),
-		RedirectURL:  "http://127.0.0.1:9090/callback",
+		ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+		RedirectURL:  "http://127.0.0.1:9090/api/v1/auth/google/callback",
 		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
 		Endpoint:     google.Endpoint,
 	}
 }
 
 func googleCallbackHandler(c *gin.Context) {
-	// Read oauthState from Cookie
 	oauthState, _ := c.Cookie("googleOauthstate")
-
-	if c.Query("googleOauthstate") != oauthState {
+	// Confirm cookie and callback states are the same (prevents CSRF attacks)
+	if c.Query("state") != oauthState {
 		log.Println("invalid oauth google state")
 		c.Redirect(http.StatusTemporaryRedirect, "/")
 		return
@@ -67,7 +65,8 @@ func googleCallbackHandler(c *gin.Context) {
 	// GetOrCreate User in your db.
 	// Redirect or response with a token.
 	// More code .....
-	fmt.Fprintf(c.Writer, "UserInfo: %s\n", data)
+	log.Printf("UserInfo: %s\n", data)
+	c.Redirect(http.StatusTemporaryRedirect, "/profile")
 }
 
 func getGoogleUserData(c *gin.Context) ([]byte, error) {
@@ -85,7 +84,6 @@ func getGoogleUserData(c *gin.Context) ([]byte, error) {
 
 	defer email.Body.Close()
 	data, _ := ioutil.ReadAll(email.Body)
-	log.Println("Email body: ", string(data))
 	c.Status(http.StatusOK)
 
 	return data, nil
@@ -94,7 +92,7 @@ func getGoogleUserData(c *gin.Context) ([]byte, error) {
 func googleLoginHandler(c *gin.Context) {
 	oauthState := generateStateOauthCookie(c)
 	loginURL := conf.AuthCodeURL(oauthState)
-	c.Redirect(http.StatusSeeOther, loginURL)
+	c.JSON(http.StatusOK, gin.H{"redirect": loginURL})
 }
 
 func generateStateOauthCookie(c *gin.Context) string {
@@ -117,7 +115,7 @@ func main() {
 
 	// CORS is enabled to allow the backend and frontend to communicate
 	//config := cors.DefaultConfig()
-	//config.AllowOrigins = []string{"http://google.com"}
+	//config.AllowOrigins = []string{"http://localhost:3000"}
 	//router.Use(cors.New(config))
 
 	// The React files are served

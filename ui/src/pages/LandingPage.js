@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 
 const googleLogin = async e => {
   e.preventDefault();
-  await axios.get('http://localhost:9090/api/v1/auth/google/login')
+  await axios.get('/api/v1/auth/google/login').then(res => window.location.href = res.data.redirect)
 };
 
 const LandingPage = () => {
