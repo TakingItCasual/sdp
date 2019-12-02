@@ -1,13 +1,9 @@
 package main
 
 import (
-	"crypto/rand"
-	"encoding/base64"
-	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
-	"time"
+	"strings"
 
 	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
@@ -28,86 +24,21 @@ type User struct {
 	Gender        string `json:"gender"`
 }
 
-var conf *oauth2.Config
-
-func randToken() string {
-	b := make([]byte, 32)
-	rand.Read(b)
-	return base64.StdEncoding.EncodeToString(b)
-}
+var (
+	googleOauthConf *oauth2.Config
+	jwtSecretKey    []byte
+)
 
 func init() {
-	conf = &oauth2.Config{
-		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
-		ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+	googleOauthConf = &oauth2.Config{
+		ClientID:     os.Getenv("SDP_GOOGLE_CLIENT_ID"),
+		ClientSecret: os.Getenv("SDP_GOOGLE_CLIENT_SECRET"),
 		RedirectURL:  "http://127.0.0.1:9090/api/v1/auth/google/callback",
 		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
 		Endpoint:     google.Endpoint,
 	}
-}
 
-func googleCallbackHandler(c *gin.Context) {
-	oauthState, _ := c.Cookie("googleOauthstate")
-	// Confirm cookie and callback states are the same (prevents CSRF attacks)
-	if c.Query("state") != oauthState {
-		log.Println("invalid oauth google state")
-		c.Redirect(http.StatusTemporaryRedirect, "/")
-		return
-	}
-
-	data, err := getGoogleUserData(c)
-	if err != nil {
-		log.Println(err.Error())
-		c.Redirect(http.StatusTemporaryRedirect, "/")
-		return
-	}
-
-	// GetOrCreate User in your db.
-	// Redirect or response with a token.
-	// More code .....
-	log.Printf("UserInfo: %s\n", data)
-	c.Redirect(http.StatusTemporaryRedirect, "/profile")
-}
-
-func getGoogleUserData(c *gin.Context) ([]byte, error) {
-	// Use code to get token and get user info from Google.
-	tok, err := conf.Exchange(oauth2.NoContext, c.Query("code"))
-	if err != nil {
-		return nil, err
-	}
-
-	client := conf.Client(oauth2.NoContext, tok)
-	email, err := client.Get("https://www.googleapis.com/oauth2/v3/userinfo")
-	if err != nil {
-		return nil, err
-	}
-
-	defer email.Body.Close()
-	data, _ := ioutil.ReadAll(email.Body)
-	c.Status(http.StatusOK)
-
-	return data, nil
-}
-
-func googleLoginHandler(c *gin.Context) {
-	oauthState := generateStateOauthCookie(c)
-	loginURL := conf.AuthCodeURL(oauthState)
-	c.JSON(http.StatusOK, gin.H{"redirect": loginURL})
-}
-
-func generateStateOauthCookie(c *gin.Context) string {
-	b := make([]byte, 32)
-	rand.Read(b)
-	randData := base64.URLEncoding.EncodeToString(b)
-	cookie := http.Cookie{
-		Name:     "googleOauthstate",
-		Value:    randData,
-		Expires:  time.Now().Add(time.Hour), // Must log in in under an hour
-		HttpOnly: true,                      // Cookie only accessible from backend
-	}
-	http.SetCookie(c.Writer, &cookie)
-
-	return randData
+	jwtSecretKey = []byte(os.Getenv("SDP_GOOGLE_CLIENT_SECRET"))
 }
 
 func main() {
@@ -121,9 +52,12 @@ func main() {
 	// The React files are served
 	router.Use(static.Serve("/", static.LocalFile("./ui/build", true)))
 	// For manual url inputs, refreshes, page 404s, etc.
-	// TODO: Figure out how to not apply this redirect for /api/ routes
 	router.NoRoute(func(c *gin.Context) {
-		c.File("./ui/build/index.html")
+		path := c.Request.URL.Path
+		// Invalid API paths get a backend 404 rather than a frontend 404
+		if !strings.HasPrefix(path, "/api/") {
+			c.File("./ui/build/index.html")
+		}
 	})
 
 	api := router.Group("/api/v1")
@@ -141,6 +75,6 @@ func main() {
 		}
 	}
 
-	// cd ui && npm run build && cd .. && go build cmd/main.go && main.exe
+	// cd ui && npm run build && cd .. && go build ./cmd/... && cmd.exe
 	router.Run(":9090")
 }

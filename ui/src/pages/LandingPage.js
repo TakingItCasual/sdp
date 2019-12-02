@@ -11,7 +11,6 @@ const LandingPage = () => {
   return (
     <div>
       <h2>Service Deployment Project Website</h2>
-      <Link to="/profile">Profile</Link>
       <button onClick={googleLogin}>Login with Google</button>
     </div>
   );
