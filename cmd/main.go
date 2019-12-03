@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -10,19 +11,6 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
-
-// User is a retrieved and authentiacted user.
-type User struct {
-	Sub           string `json:"sub"`
-	Name          string `json:"name"`
-	GivenName     string `json:"given_name"`
-	FamilyName    string `json:"family_name"`
-	Profile       string `json:"profile"`
-	Picture       string `json:"picture"`
-	Email         string `json:"email"`
-	EmailVerified string `json:"email_verified"`
-	Gender        string `json:"gender"`
-}
 
 var (
 	googleOauthConf *oauth2.Config
@@ -39,6 +27,16 @@ func init() {
 	}
 
 	jwtSecretKey = []byte(os.Getenv("SDP_GOOGLE_CLIENT_SECRET"))
+}
+
+func authMiddleware() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		if !validateJWT(ctx) {
+			log.Println("JWT auth failed.")
+			ctx.AbortWithStatus(401)
+		}
+		ctx.Next()
+	}
 }
 
 func main() {
@@ -62,11 +60,15 @@ func main() {
 
 	api := router.Group("/api/v1")
 	{
-		api.GET("/test", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{
-				"message": "pong",
+		authorized := api.Group("/private")
+		authorized.Use(authMiddleware())
+		{
+			authorized.GET("/test", func(c *gin.Context) {
+				c.JSON(http.StatusOK, gin.H{
+					"message": "pong",
+				})
 			})
-		})
+		}
 
 		auth := api.Group("/auth/google")
 		{

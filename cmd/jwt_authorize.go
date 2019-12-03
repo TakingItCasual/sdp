@@ -1,7 +1,7 @@
-// Copied from https://www.sohamkamani.com/blog/golang/2019-01-01-jwt-authentication/
 package main
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -9,39 +9,76 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type jwtClaims struct {
-	Email string `json:"email"`
+type customClaims struct {
+	UserID    string `json:"id"`
+	RefreshAt int64  `json:"refresh"`
 	jwt.StandardClaims
 }
 
-func createJWT(c *gin.Context, email string) {
-	// Declare the expiration time of the token
-	// here, we have kept it as 5 minutes
-	expirationTime := time.Now().Add(5 * time.Minute)
-	// Create the JWT claims, which includes the username and expiry time
-	claims := &jwtClaims{
-		Email: email,
-		StandardClaims: jwt.StandardClaims{
-			// In JWT, the expiry time is expressed as unix milliseconds
-			ExpiresAt: expirationTime.Unix(),
+func createJWT(ctx *gin.Context, id string) {
+	refreshTimer, refreshExpire := genExpires()
+	claims := customClaims{
+		id,
+		refreshTimer.Unix(),
+		jwt.StandardClaims{
+			ExpiresAt: refreshExpire.Unix(),
 		},
 	}
-
-	// Declare the token with the algorithm used for signing, and the claims
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	// Create the JWT string
+
 	tokenString, err := token.SignedString(jwtSecretKey)
 	if err != nil {
-		// If there is an error in creating the JWT return an internal server error
-		c.AbortWithStatus(http.StatusInternalServerError)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
-	// Finally, we set the client cookie for "token" as the JWT we just generated
-	// we also set an expiry time which is the same as the token itself
-	http.SetCookie(c.Writer, &http.Cookie{
-		Name:    "token",
-		Value:   tokenString,
-		Expires: expirationTime,
+	http.SetCookie(ctx.Writer, &http.Cookie{
+		Name:     "auth_token",
+		Value:    tokenString,
+		Path:     "/",
+		Expires:  refreshExpire, // Same as token's
+		HttpOnly: true,          // Cookie only accessible from backend
 	})
+}
+
+func refreshJWT(ctx *gin.Context, oldClaims customClaims) {
+	createJWT(ctx, oldClaims.UserID)
+}
+
+func validateJWT(ctx *gin.Context) bool {
+	tokenString, err := ctx.Cookie("auth_token")
+	if err != nil {
+		log.Printf("JWT: Error with cookie: %v\n", err.Error())
+		return false
+	}
+
+	token, err := jwt.ParseWithClaims(tokenString, &customClaims{},
+		func(token *jwt.Token) (interface{}, error) {
+			return jwtSecretKey, nil
+		},
+	)
+	if err != nil {
+		log.Printf("JWT: Error parsing claim: %v\n", err.Error())
+		return false
+	}
+
+	// Signing method doesn't match
+	if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		log.Printf("JWT: Signing method mismatch: %v\n", err.Error())
+		return false
+	}
+	if claims, ok := token.Claims.(*customClaims); ok && token.Valid {
+		if time.Unix(claims.RefreshAt, 0).Sub(time.Now()) < 0 {
+			refreshJWT(ctx, *claims)
+		}
+		return true
+	}
+	log.Println("Token not valid.")
+	return false
+}
+
+func genExpires() (time.Time, time.Time) {
+	shortExpire := time.Now().Add(15 * time.Minute)  // JWT must be refreshed
+	longExpire := time.Now().Add(7 * 24 * time.Hour) // User must re-login
+	return shortExpire, longExpire
 }
