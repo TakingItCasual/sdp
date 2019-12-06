@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"net/http"
 	"os"
 	"strings"
 
@@ -31,7 +30,7 @@ func init() {
 
 func authMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		if !validateJWT(ctx) {
+		if getUserIDFromCookie(ctx) == nil {
 			log.Println("JWT auth failed.")
 			ctx.AbortWithStatus(401)
 		}
@@ -60,20 +59,19 @@ func main() {
 
 	api := router.Group("/api/v1")
 	{
-		authorized := api.Group("/private")
+		authorized := api.Group("/priv")
 		authorized.Use(authMiddleware())
 		{
-			authorized.GET("/test", func(c *gin.Context) {
-				c.JSON(http.StatusOK, gin.H{
-					"message": "pong",
-				})
-			})
+			authorized.GET("/user", getUser)
 		}
 
-		auth := api.Group("/auth/google")
+		auth := api.Group("/auth")
 		{
-			auth.GET("/login", googleLoginHandler)
-			auth.GET("/callback", googleCallbackHandler)
+			googleAuth := auth.Group("/google")
+			{
+				googleAuth.GET("/login", googleLoginHandler)
+				googleAuth.GET("/callback", googleCallbackHandler)
+			}
 		}
 	}
 

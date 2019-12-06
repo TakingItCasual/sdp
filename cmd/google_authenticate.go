@@ -12,8 +12,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// User is a retrieved and authentiacted user.
-type User struct {
+type googleUser struct {
 	Sub     string `json:"sub"`
 	Picture string `json:"picture"`
 	Email   string `json:"email"`
@@ -41,11 +40,10 @@ func googleCallbackHandler(ctx *gin.Context) {
 		return
 	}
 
-	// GetOrCreate User in your db.
-	// Redirect or response with a token.
-	// More code .....
-	log.Printf("User email: %s\n", data.Email)
-	createJWT(ctx, data.Sub)
+	userID := getUserID(data.Sub)
+	log.Printf("User ID: %d\n", userID)
+
+	createJWT(ctx, userID)
 	ctx.Redirect(http.StatusTemporaryRedirect, "/profile")
 }
 
@@ -64,7 +62,7 @@ func generateStateOauthCookie(ctx *gin.Context) string {
 	return randData
 }
 
-func getGoogleUserData(ctx *gin.Context) (*User, error) {
+func getGoogleUserData(ctx *gin.Context) (*googleUser, error) {
 	// Use code to get token and get user info from Google.
 	tok, err := googleOauthConf.Exchange(oauth2.NoContext, ctx.Query("code"))
 	if err != nil {
@@ -78,7 +76,7 @@ func getGoogleUserData(ctx *gin.Context) (*User, error) {
 	}
 
 	defer data.Body.Close()
-	userData := &User{}
+	userData := &googleUser{}
 	json.NewDecoder(data.Body).Decode(userData)
 	ctx.Status(http.StatusOK)
 

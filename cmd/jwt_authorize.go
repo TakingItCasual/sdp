@@ -10,12 +10,12 @@ import (
 )
 
 type customClaims struct {
-	UserID    string `json:"id"`
-	RefreshAt int64  `json:"refresh"`
+	UserID    int32 `json:"id"`
+	RefreshAt int64 `json:"refresh"`
 	jwt.StandardClaims
 }
 
-func createJWT(ctx *gin.Context, id string) {
+func createJWT(ctx *gin.Context, id int32) {
 	refreshTimer, refreshExpire := genExpires()
 	claims := customClaims{
 		id,
@@ -33,11 +33,22 @@ func createJWT(ctx *gin.Context, id string) {
 	}
 
 	http.SetCookie(ctx.Writer, &http.Cookie{
-		Name:     "auth_token",
-		Value:    tokenString,
-		Path:     "/",
-		Expires:  refreshExpire, // Same as token's
-		HttpOnly: true,          // Cookie only accessible from backend
+		Name:    "auth_token",
+		Value:   tokenString,
+		Path:    "/",
+		Expires: refreshExpire, // Same as token's
+		//HttpOnly: true,          // Cookie only accessible from backend
+	})
+}
+
+func logoutHandler(ctx *gin.Context) {
+	// Deletes auth cookie
+	http.SetCookie(ctx.Writer, &http.Cookie{
+		Name:    "auth_token",
+		Value:   "",
+		Path:    "/",
+		Expires: time.Unix(0, 0),
+		//HttpOnly: true,
 	})
 }
 
@@ -45,11 +56,11 @@ func refreshJWT(ctx *gin.Context, oldClaims customClaims) {
 	createJWT(ctx, oldClaims.UserID)
 }
 
-func validateJWT(ctx *gin.Context) bool {
+func getUserIDFromCookie(ctx *gin.Context) *int32 {
 	tokenString, err := ctx.Cookie("auth_token")
 	if err != nil {
 		log.Printf("JWT: Error with cookie: %v\n", err.Error())
-		return false
+		return nil
 	}
 
 	token, err := jwt.ParseWithClaims(tokenString, &customClaims{},
@@ -59,22 +70,22 @@ func validateJWT(ctx *gin.Context) bool {
 	)
 	if err != nil {
 		log.Printf("JWT: Error parsing claim: %v\n", err.Error())
-		return false
+		return nil
 	}
 
 	// Signing method doesn't match
 	if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 		log.Printf("JWT: Signing method mismatch: %v\n", err.Error())
-		return false
+		return nil
 	}
 	if claims, ok := token.Claims.(*customClaims); ok && token.Valid {
 		if time.Unix(claims.RefreshAt, 0).Sub(time.Now()) < 0 {
 			refreshJWT(ctx, *claims)
 		}
-		return true
+		return &claims.UserID
 	}
 	log.Println("Token not valid.")
-	return false
+	return nil
 }
 
 func genExpires() (time.Time, time.Time) {
