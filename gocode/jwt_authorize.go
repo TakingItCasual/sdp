@@ -1,13 +1,20 @@
-package main
+package gocode
 
 import (
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 )
+
+var jwtSecretKey []byte
+
+func init() {
+	jwtSecretKey = []byte(os.Getenv("SDP_GOOGLE_CLIENT_SECRET"))
+}
 
 type customClaims struct {
 	UserID    int32 `json:"id"`
@@ -56,7 +63,7 @@ func refreshJWT(ctx *gin.Context, oldClaims customClaims) {
 	createJWT(ctx, oldClaims.UserID)
 }
 
-func getUserIDFromCookie(ctx *gin.Context) *int32 {
+func GetUserIDFromCookie(ctx *gin.Context) *int32 {
 	tokenString, err := ctx.Cookie("auth_token")
 	if err != nil {
 		log.Printf("JWT: Error with cookie: %v\n", err.Error())

@@ -1,4 +1,4 @@
-package main
+package gocode
 
 import (
 	"crypto/rand"
@@ -6,11 +6,26 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 )
+
+var googleOauthConf *oauth2.Config
+
+func init() {
+	googleOauthConf = &oauth2.Config{
+		ClientID:     os.Getenv("SDP_GOOGLE_CLIENT_ID"),
+		ClientSecret: os.Getenv("SDP_GOOGLE_CLIENT_SECRET"),
+		//RedirectURL:  "http://127.0.0.1:5000/api/v1/auth/google/callback",
+		RedirectURL: "http://ojero009.eu-central-1.elasticbeanstalk.com/api/v1/auth/google/callback",
+		Scopes:      []string{"https://www.googleapis.com/auth/userinfo.email"},
+		Endpoint:    google.Endpoint,
+	}
+}
 
 type googleUser struct {
 	Sub     string `json:"sub"`
@@ -18,13 +33,13 @@ type googleUser struct {
 	Email   string `json:"email"`
 }
 
-func googleLoginHandler(ctx *gin.Context) {
+func GoogleLoginHandler(ctx *gin.Context) {
 	oauthState := generateStateOauthCookie(ctx)
 	loginURL := googleOauthConf.AuthCodeURL(oauthState)
 	ctx.JSON(http.StatusOK, gin.H{"redirect": loginURL})
 }
 
-func googleCallbackHandler(ctx *gin.Context) {
+func GoogleCallbackHandler(ctx *gin.Context) {
 	oauthState, _ := ctx.Cookie("googleOauthstate")
 	// Confirm cookie and callback states are the same (prevents CSRF attacks)
 	if ctx.Query("state") != oauthState {

@@ -24,3 +24,5 @@
 
 # Custom
 **/*.exe
+**/*.zip
+**/bin/
