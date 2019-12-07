@@ -12,11 +12,11 @@ import (
 )
 
 var (
-	dbHost = "aabgan6rulfuiy.cumylu5vzsok.eu-central-1.rds.amazonaws.com"
+	dbHost = "localhost"
 	dbPort = 5432
 	dbUser = os.Getenv("SDP_SQL_USER")
 	dbPass = os.Getenv("SDP_SQL_PASS")
-	dbName = "sdp_data"
+	dbName = "postgres"
 	dbObj  *sql.DB
 )
 
@@ -40,6 +40,20 @@ func init() {
 	dbObj, err = sql.Open("postgres", psqlInfo)
 	panicIfErr(err)
 	err = dbObj.Ping()
+	panicIfErr(err)
+	createTable()
+}
+
+func createTable() {
+	sqlStatement := `CREATE TABLE IF NOT EXISTS users
+	(
+		id serial PRIMARY KEY,
+		google_id VARCHAR (50) NOT NULL,
+		first_name VARCHAR (50),
+		last_name VARCHAR (50),
+		school_email VARCHAR (50),
+	)`
+	_, err := dbObj.Exec(sqlStatement)
 	panicIfErr(err)
 }
 
