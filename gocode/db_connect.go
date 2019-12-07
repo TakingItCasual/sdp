@@ -45,13 +45,12 @@ func init() {
 }
 
 func createTable() {
-	sqlStatement := `CREATE TABLE IF NOT EXISTS users
-	(
+	sqlStatement := `CREATE TABLE IF NOT EXISTS users (
 		id serial PRIMARY KEY,
-		google_id VARCHAR (50) NOT NULL,
+		google_id VARCHAR (50) NOT NULL UNIQUE,
 		first_name VARCHAR (50),
 		last_name VARCHAR (50),
-		school_email VARCHAR (50),
+		school_email VARCHAR (50) UNIQUE
 	)`
 	_, err := dbObj.Exec(sqlStatement)
 	panicIfErr(err)
