@@ -68,6 +68,7 @@ func createUser(googleID string) int32 {
 	return id
 }
 
+// GetUser used as route
 func GetUser(ctx *gin.Context) {
 	sqlStatement := `SELECT first_name, last_name, school_email
 	FROM users WHERE id=$1;`
@@ -83,6 +84,7 @@ func GetUser(ctx *gin.Context) {
 	})
 }
 
+// GetUsers used as route
 func GetUsers(ctx *gin.Context) {
 	rows, err := dbObj.Query("SELECT first_name, last_name, school_email FROM users")
 	panicIfErr(err)
@@ -100,6 +102,7 @@ func GetUsers(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, userObjs)
 }
 
+// PutUser used as route
 func PutUser(ctx *gin.Context) {
 	var form user
 	if err := ctx.ShouldBindJSON(&form); err != nil {

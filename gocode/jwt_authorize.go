@@ -63,6 +63,7 @@ func refreshJWT(ctx *gin.Context, oldClaims customClaims) {
 	createJWT(ctx, oldClaims.UserID)
 }
 
+// GetUserIDFromCookie used as route
 func GetUserIDFromCookie(ctx *gin.Context) *int32 {
 	tokenString, err := ctx.Cookie("auth_token")
 	if err != nil {

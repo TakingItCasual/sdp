@@ -33,12 +33,14 @@ type googleUser struct {
 	Email   string `json:"email"`
 }
 
+// GoogleLoginHandler used as route
 func GoogleLoginHandler(ctx *gin.Context) {
 	oauthState := generateStateOauthCookie(ctx)
 	loginURL := googleOauthConf.AuthCodeURL(oauthState)
 	ctx.JSON(http.StatusOK, gin.H{"redirect": loginURL})
 }
 
+// GoogleCallbackHandler used as route
 func GoogleCallbackHandler(ctx *gin.Context) {
 	oauthState, _ := ctx.Cookie("googleOauthstate")
 	// Confirm cookie and callback states are the same (prevents CSRF attacks)
