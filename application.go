@@ -25,7 +25,7 @@ func main() {
 	api := router.Group("/api/v1")
 	{
 		authorized := api.Group("/priv")
-		authorized.Use(gocode.authMiddleware())
+		authorized.Use(gocode.AuthMiddleware())
 		{
 			authorized.GET("/user", gocode.GetUser)
 			authorized.PUT("/user", gocode.PutUser)
