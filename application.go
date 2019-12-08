@@ -1,23 +1,12 @@
 package main
 
 import (
-	"log"
 	"strings"
 
 	"github.com/TakingItCasual/sdp/gocode"
 	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
 )
-
-func authMiddleware() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		if gocode.getUserIDFromCookie(ctx) == nil {
-			log.Println("JWT auth failed.")
-			ctx.AbortWithStatus(401)
-		}
-		ctx.Next()
-	}
-}
 
 func main() {
 	router := gin.Default()
@@ -36,7 +25,7 @@ func main() {
 	api := router.Group("/api/v1")
 	{
 		authorized := api.Group("/priv")
-		authorized.Use(authMiddleware())
+		authorized.Use(gocode.authMiddleware())
 		{
 			authorized.GET("/user", gocode.GetUser)
 			authorized.PUT("/user", gocode.PutUser)

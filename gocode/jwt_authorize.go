@@ -47,6 +47,17 @@ func createJWT(ctx *gin.Context, id int32) {
 	})
 }
 
+// AuthMiddleware used as authentication middleware for routes
+func AuthMiddleware() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		if getUserIDFromCookie(ctx) == nil {
+			log.Println("JWT auth failed.")
+			ctx.AbortWithStatus(401)
+		}
+		ctx.Next()
+	}
+}
+
 func getUserIDFromCookie(ctx *gin.Context) *int32 {
 	tokenString, err := ctx.Cookie("auth_token")
 	if err != nil {
