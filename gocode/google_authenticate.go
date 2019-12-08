@@ -20,10 +20,9 @@ func init() {
 	googleOauthConf = &oauth2.Config{
 		ClientID:     os.Getenv("SDP_GOOGLE_CLIENT_ID"),
 		ClientSecret: os.Getenv("SDP_GOOGLE_CLIENT_SECRET"),
-		//RedirectURL:  "http://127.0.0.1:5000/api/v1/auth/google/callback",
-		RedirectURL: "http://ojero009.eu-central-1.elasticbeanstalk.com/api/v1/auth/google/callback",
-		Scopes:      []string{"https://www.googleapis.com/auth/userinfo.email"},
-		Endpoint:    google.Endpoint,
+		RedirectURL:  os.Getenv("SDP_GOOGLE_CALLBACK"),
+		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
+		Endpoint:     google.Endpoint,
 	}
 }
 
