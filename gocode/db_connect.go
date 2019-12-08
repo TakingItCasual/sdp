@@ -85,7 +85,7 @@ func createUser(googleID string) int32 {
 func GetUser(ctx *gin.Context) {
 	sqlStatement := `SELECT first_name, last_name, school_email
 	FROM users WHERE id=$1;`
-	row := dbObj.QueryRow(sqlStatement, *GetUserIDFromCookie(ctx))
+	row := dbObj.QueryRow(sqlStatement, *getUserIDFromCookie(ctx))
 	var userObj user
 	if err := row.Scan(&userObj.FirstName, &userObj.LastName, &userObj.SchoolEmail); err != nil {
 		log.Panic(err)
@@ -95,24 +95,6 @@ func GetUser(ctx *gin.Context) {
 		"last_name":    userObj.LastName,
 		"school_email": userObj.SchoolEmail,
 	})
-}
-
-// GetUsers used as route
-func GetUsers(ctx *gin.Context) {
-	rows, err := dbObj.Query("SELECT first_name, last_name, school_email FROM users")
-	panicIfErr(err)
-	defer rows.Close()
-	userObjs := []user{}
-	for rows.Next() {
-		var userObj user
-		err = rows.Scan(&userObj.FirstName, &userObj.LastName, &userObj.SchoolEmail)
-		panicIfErr(err)
-		userObjs = append(userObjs, userObj)
-	}
-	err = rows.Err()
-	panicIfErr(err)
-
-	ctx.JSON(http.StatusOK, userObjs)
 }
 
 // PutUser used as route
@@ -131,6 +113,24 @@ func PutUser(ctx *gin.Context) {
 	sqlStatement := `UPDATE users
 	SET first_name = $2, last_name = $3, school_email = $4
 	WHERE id = $1;`
-	_, err := dbObj.Exec(sqlStatement, *GetUserIDFromCookie(ctx), *form.FirstName, *form.LastName, *form.SchoolEmail)
+	_, err := dbObj.Exec(sqlStatement, *getUserIDFromCookie(ctx), *form.FirstName, *form.LastName, *form.SchoolEmail)
 	panicIfErr(err)
+}
+
+// GetUsers used as route
+func GetUsers(ctx *gin.Context) {
+	rows, err := dbObj.Query("SELECT first_name, last_name, school_email FROM users")
+	panicIfErr(err)
+	defer rows.Close()
+	userObjs := []user{}
+	for rows.Next() {
+		var userObj user
+		err = rows.Scan(&userObj.FirstName, &userObj.LastName, &userObj.SchoolEmail)
+		panicIfErr(err)
+		userObjs = append(userObjs, userObj)
+	}
+	err = rows.Err()
+	panicIfErr(err)
+
+	ctx.JSON(http.StatusOK, userObjs)
 }

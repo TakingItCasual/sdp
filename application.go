@@ -11,7 +11,7 @@ import (
 
 func authMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		if gocode.GetUserIDFromCookie(ctx) == nil {
+		if gocode.getUserIDFromCookie(ctx) == nil {
 			log.Println("JWT auth failed.")
 			ctx.AbortWithStatus(401)
 		}

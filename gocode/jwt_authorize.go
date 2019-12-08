@@ -44,27 +44,10 @@ func createJWT(ctx *gin.Context, id int32) {
 		Value:   tokenString,
 		Path:    "/",
 		Expires: refreshExpire, // Same as token's
-		//HttpOnly: true,          // Cookie only accessible from backend
 	})
 }
 
-func logoutHandler(ctx *gin.Context) {
-	// Deletes auth cookie
-	http.SetCookie(ctx.Writer, &http.Cookie{
-		Name:    "auth_token",
-		Value:   "",
-		Path:    "/",
-		Expires: time.Unix(0, 0),
-		//HttpOnly: true,
-	})
-}
-
-func refreshJWT(ctx *gin.Context, oldClaims customClaims) {
-	createJWT(ctx, oldClaims.UserID)
-}
-
-// GetUserIDFromCookie used as route
-func GetUserIDFromCookie(ctx *gin.Context) *int32 {
+func getUserIDFromCookie(ctx *gin.Context) *int32 {
 	tokenString, err := ctx.Cookie("auth_token")
 	if err != nil {
 		log.Printf("JWT: Error with cookie: %v\n", err.Error())
@@ -94,6 +77,10 @@ func GetUserIDFromCookie(ctx *gin.Context) *int32 {
 	}
 	log.Println("Token not valid.")
 	return nil
+}
+
+func refreshJWT(ctx *gin.Context, oldClaims customClaims) {
+	createJWT(ctx, oldClaims.UserID)
 }
 
 func genExpires() (time.Time, time.Time) {
