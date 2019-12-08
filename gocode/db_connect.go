@@ -14,9 +14,7 @@ import (
 var (
 	dbHost = "localhost"
 	dbPort = 5432
-	dbUser = os.Getenv("SDP_SQL_USER")
 	dbPass = os.Getenv("SDP_SQL_PASS")
-	dbName = "postgres"
 	dbObj  *sql.DB
 )
 
@@ -33,9 +31,11 @@ func panicIfErr(err error) {
 }
 
 func init() {
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
-		"password=%s dbname=%s sslmode=disable",
-		dbHost, dbPort, dbUser, dbPass, dbName)
+	// Getting user/database names other than the default "postgres" to work
+	// requires additional effort, so the postgres is used for both.
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=postgres "+
+		"password=%s dbname=postgres sslmode=disable",
+		dbHost, dbPort, dbPass)
 	var err error
 	dbObj, err = sql.Open("postgres", psqlInfo)
 	panicIfErr(err)
