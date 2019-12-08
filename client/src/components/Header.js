@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Redirect, Link, withRouter } from "react-router-dom";
+import { Link, withRouter } from "react-router-dom";
 import { Menu } from "semantic-ui-react";
 import Cookies from "js-cookie";
 

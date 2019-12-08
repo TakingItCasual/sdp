@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { withRouter } from "react-router-dom";
 import axios from "axios";
 import { Grid, Form } from "semantic-ui-react";
 
@@ -25,6 +26,7 @@ const Profile = props => {
         last_name: lastName,
         school_email: email
       });
+      props.history.push("/users");
     } else {
       alert("Please fill in all forms.");
     }
@@ -55,4 +57,4 @@ const Profile = props => {
   );
 };
 
-export default Profile;
+export default withRouter(Profile);
